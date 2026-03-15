@@ -1,0 +1,66 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+// User Model
+model User {
+    id        String    @id @default(uuid())
+    email     String    @unique
+    name      String?
+    createdAt DateTime  @default(now())
+    projects  Project[]
+}
+
+// Project Model
+model Project {
+    id          String      @id @default(uuid())
+    name        String
+    description String?
+    userId      String
+    user        User        @relation(fields: [userId], references: [id])
+    imports     ImportJob[]
+    createdAt   DateTime    @default(now())
+    updatedAt   DateTime    @updatedAt
+}
+
+// Enum defining the lifecycle states of an import
+enum ImportJobStatus {
+    UPLOADED
+    PROCESSING
+    SCHEMA_GENERATED
+    READY
+    FAILED
+}
+
+// ImportJob Model: Tracks the uploaded file and its processing status
+model ImportJob {
+    id        String          @id @default(uuid())
+    projectId String
+    project   Project         @relation(fields: [projectId], references: [id])
+    fileName  String
+    filePath  String
+    fileSize  Int?
+    status    ImportJobStatus @default(UPLOADED)
+    columns   ParsedColumn[]
+    createdAt DateTime        @default(now())
+    updatedAt DateTime        @updatedAt
+}
+
+// ParsedColumn Model: Stores extracted column metadata from the imported file
+model ParsedColumn {
+    id           String    @id @default(uuid())
+    importJobId  String
+    importJob    ImportJob @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+    name         String
+    detectedType String    @default("VARCHAR")
+    nullable     Boolean   @default(true)
+    sampleValue  String?
+    order        Int
+    createdAt    DateTime  @default(now())
+    updatedAt    DateTime  @updatedAt
+}

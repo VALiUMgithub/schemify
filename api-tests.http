@@ -1,0 +1,115 @@
+### Health Check
+GET http://localhost:3002/api/health
+
+###
+
+### ----------------------------------------------------
+### PROJECTS API TESTS
+### ----------------------------------------------------
+
+### 1. Create a Project
+# NOTE: You MUST replace `YOUR_USER_ID_HERE` with the actual User ID 
+# you create in Prisma Studio (see instructions).
+POST http://localhost:3002/api/projects
+Content-Type: application/json
+
+{
+  "name": "Second Project",
+  "description": "Second Project!",
+  "userId": "9f58550a-87e0-462e-8aca-f983b26c569b"
+}
+
+###
+
+### 2. Get All Projects
+GET http://localhost:3002/api/projects
+
+###
+
+### 3. Update a Project (Replace YOUR_PROJECT_ID_HERE)
+PATCH http://localhost:3002/api/projects/35c4ae9d-1cba-462d-8fe9-3deb5906a4a5
+Content-Type: application/json
+
+{
+  "description": "I updated this description via PATCH"
+}
+
+###
+
+### 4. Delete a Project (Replace YOUR_PROJECT_ID_HERE)
+DELETE http://localhost:3002/api/projects/35c4ae9d-1cba-462d-8fe9-3deb5906a4a5
+
+### ----------------------------------------------------
+### IMPORTS API TESTS
+### ----------------------------------------------------
+
+### 1. Create an Import Job
+# Replace YOUR_PROJECT_ID_HERE with an ID from the 'Get All Projects' response
+POST http://localhost:3002/api/imports
+Content-Type: application/json
+
+{
+  "projectId": "db4ab67d-d4a5-4322-8640-5a899efc8a22",
+  "fileName": "test.csv",
+  "filePath": "/uploads/test.csv"
+}
+
+###
+
+### 2. Get All Imports 
+GET http://localhost:3002/api/imports
+
+###
+
+### 3. Get Imports by Project ID
+GET http://localhost:3002/api/imports?projectId=a92d58ba-24cb-4062-848a-446252077c2b
+
+###
+
+### 4. Update Import Status (Replace YOUR_IMPORT_ID_HERE)
+PATCH http://localhost:3002/api/imports/1da3e20d-abce-45a6-a062-7945fc34dabf/status
+Content-Type: application/json
+
+{
+  "status": "PROCESSING"
+}
+
+###
+
+### 5. Delete an Import Job
+DELETE http://localhost:3002/api/imports/1da3e20d-abce-45a6-a062-7945fc34dabf
+
+###
+
+### 6. Upload an Import File (Example)
+# IMPORTANT: File uploads through REST Client often look like this visually.
+# You need a real file named "test.csv" in the root directory to test via CLI, 
+# or you can test this endpoint natively in Postman which supports file picking.
+POST http://localhost:3002/api/imports/upload
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="projectId"
+
+a92d58ba-24cb-4062-848a-446252077c2b
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="test.csv"
+Content-Type: text/csv
+
+name,email,age
+Alice,alice@example.com,20
+Bob,bob@example.com,30
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 7. Parse Uploaded File
+# Replace YOUR_IMPORT_ID_HERE with the ID returned from the Upload endpoint
+POST http://localhost:3002/api/imports/7db4d6eb-8c65-48f7-abc1-d5daf8984233/parse
+Content-Type: application/json
+
+###
+
+### 8. Detect Schema For File Upload
+# Run this AFTER you have successfully executed block #7 (Parse Uploaded File).
+# Replace YOUR_IMPORT_ID_HERE with that exact same ID.
+POST http://localhost:3002/api/imports/YOUR_IMPORT_ID_HERE/detect-schema
+Content-Type: application/json
