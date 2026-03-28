@@ -14,6 +14,7 @@ router.get('/', controller.getImports.bind(controller));
 router.get('/:id', controller.getImport.bind(controller));
 router.post('/:id/parse', controller.parseImport.bind(controller));
 router.post('/:id/detect-schema', controller.detectSchema.bind(controller));
+router.patch('/:id/columns', controller.updateColumns.bind(controller));
 router.patch('/:id/status', controller.updateImportStatus.bind(controller));
 router.delete('/:id', controller.deleteImport.bind(controller));
 

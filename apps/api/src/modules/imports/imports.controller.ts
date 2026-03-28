@@ -96,4 +96,17 @@ export class ImportsController {
       next(error);
     }
   }
+
+  async updateColumns(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { updates } = req.body;
+      if (!updates || !Array.isArray(updates)) {
+        return res.status(400).json({ error: 'updates array is required' });
+      }
+      await importsService.updateColumns(req.params.id, updates);
+      return ResponseUtil.success(res, null, 'Columns updated successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
 }

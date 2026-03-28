@@ -93,7 +93,7 @@ Content-Disposition: form-data; name="projectId"
 
 a92d58ba-24cb-4062-848a-446252077c2b
 ------WebKitFormBoundary7MA4YWxkTrZu0gW
-Content-Disposition: form-data; name="file"; filename="test.csv"
+Content-Disposition: form-data; name="file"; filename="test1.csv"
 Content-Type: text/csv
 
 name,email,age
@@ -103,7 +103,7 @@ Bob,bob@example.com,30
 
 ### 7. Parse Uploaded File
 # Replace YOUR_IMPORT_ID_HERE with the ID returned from the Upload endpoint
-POST http://localhost:3002/api/imports/7db4d6eb-8c65-48f7-abc1-d5daf8984233/parse
+POST http://localhost:3002/api/imports/38d586f0-dcd5-418f-a93e-97ff7fdc6205/parse
 Content-Type: application/json
 
 ###
@@ -111,5 +111,18 @@ Content-Type: application/json
 ### 8. Detect Schema For File Upload
 # Run this AFTER you have successfully executed block #7 (Parse Uploaded File).
 # Replace YOUR_IMPORT_ID_HERE with that exact same ID.
-POST http://localhost:3002/api/imports/YOUR_IMPORT_ID_HERE/detect-schema
+POST http://localhost:3002/api/imports/38d586f0-dcd5-418f-a93e-97ff7fdc6205/detect-schema
 Content-Type: application/json
+
+###
+
+### 9. Generate SQL Schema Preview
+# Run this AFTER running block #8.
+# Replace YOUR_IMPORT_ID_HERE with the ID of the import.
+POST http://localhost:3002/api/schema/generate/38d586f0-dcd5-418f-a93e-97ff7fdc6205
+Content-Type: application/json
+
+{
+  "databaseType": "postgres",
+  "tableName": "employee_data"
+}

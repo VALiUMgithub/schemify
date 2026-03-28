@@ -6,6 +6,8 @@ export interface ApiResponse<T = any> {
   message?: string;
   data?: T;
   error?: string;
+  code?: string;
+  details?: unknown;
 }
 
 // Utility class to generate consistent API responses
@@ -19,11 +21,20 @@ export class ResponseUtil {
     return res.status(statusCode).json(response);
   }
 
-  static error(res: Response, message: string, statusCode = 500, errorDetails?: string) {
+  static error(
+    res: Response,
+    message: string,
+    statusCode = 500,
+    errorDetails?: string,
+    code?: string,
+    details?: unknown
+  ) {
     const response: ApiResponse = {
       success: false,
       message,
       error: errorDetails,
+      code,
+      details,
     };
     return res.status(statusCode).json(response);
   }

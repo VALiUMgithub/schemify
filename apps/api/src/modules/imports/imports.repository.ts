@@ -74,18 +74,21 @@ export class ImportsRepository {
   /**
    * Bulk updates the detected column attributes to the parsed columns
    */
-  async updateDetectedTypes(importJobId: string, updates: { columnId: string, detectedType: string, nullable: boolean }[]) {
+  async updateDetectedTypes(importJobId: string, updates: { columnId: string, detectedType: string, nullable: boolean, name?: string }[]) {
     return await prisma.$transaction(async (tx) => {
       // Execute each update concurrently
-      const updatePromises = updates.map(update => 
-        tx.parsedColumn.update({
+      const updatePromises = updates.map(update => {
+        const data: any = {
+          detectedType: update.detectedType,
+          nullable: update.nullable
+        };
+        if (update.name) data.name = update.name;
+
+        return tx.parsedColumn.update({
           where: { id: update.columnId, importJobId }, // Safety scope via importJobId
-          data: {
-            detectedType: update.detectedType,
-            nullable: update.nullable
-          }
-        })
-      );
+          data
+        });
+      });
       await Promise.all(updatePromises);
     });
   }

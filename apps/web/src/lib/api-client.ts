@@ -1,10 +1,7 @@
-import axios from 'axios';
-
-// Create a centralized Axios instance to handle API calls
-// This allows us to inject auth tokens automatically and handle global errors later.
-export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3002',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+/**
+ * Re-exports the canonical API client so code that already imports
+ * from `lib/api-client` continues to work without changes.
+ *
+ * Prefer importing from `services/api.ts` in new code.
+ */
+export { api as apiClient } from "../services/api";

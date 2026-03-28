@@ -37,18 +37,28 @@ enum ImportJobStatus {
     FAILED
 }
 
+// Enum defining execution status
+enum ExecutionJobStatus {
+    PENDING
+    RUNNING
+    SUCCESS
+    FAILED
+}
+
 // ImportJob Model: Tracks the uploaded file and its processing status
 model ImportJob {
-    id        String          @id @default(uuid())
-    projectId String
-    project   Project         @relation(fields: [projectId], references: [id])
-    fileName  String
-    filePath  String
-    fileSize  Int?
-    status    ImportJobStatus @default(UPLOADED)
-    columns   ParsedColumn[]
-    createdAt DateTime        @default(now())
-    updatedAt DateTime        @updatedAt
+    id         String            @id @default(uuid())
+    projectId  String
+    project    Project           @relation(fields: [projectId], references: [id])
+    fileName   String
+    filePath   String
+    fileSize   Int?
+    status     ImportJobStatus   @default(UPLOADED)
+    columns    ParsedColumn[]
+    schemas    GeneratedSchema[]
+    executions ExecutionJob[]
+    createdAt  DateTime          @default(now())
+    updatedAt  DateTime          @updatedAt
 }
 
 // ParsedColumn Model: Stores extracted column metadata from the imported file
@@ -63,4 +73,27 @@ model ParsedColumn {
     order        Int
     createdAt    DateTime  @default(now())
     updatedAt    DateTime  @updatedAt
+}
+
+// GeneratedSchema Model: Stores the generated SQL script locally
+model GeneratedSchema {
+    id           String    @id @default(uuid())
+    importJobId  String
+    importJob    ImportJob @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+    databaseType String // e.g. 'postgres', 'mysql', 'mssql'
+    tableName    String
+    sqlScript    String    @db.Text
+    createdAt    DateTime  @default(now())
+}
+
+// ExecutionJob Model: Tracks the physical insertion of queries on an external database
+model ExecutionJob {
+    id           String             @id @default(uuid())
+    importJobId  String
+    importJob    ImportJob          @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+    databaseType String
+    status       ExecutionJobStatus @default(PENDING)
+    rowsInserted Int                @default(0)
+    errorMessage String?            @db.Text
+    executedAt   DateTime           @default(now())
 }

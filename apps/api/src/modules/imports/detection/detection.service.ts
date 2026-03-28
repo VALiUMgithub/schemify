@@ -61,6 +61,7 @@ export class DetectionService {
     // 5. Build and return the structured response
     return {
       columns: detectionUpdates.map(u => ({
+        id: u.columnId,
         name: u.name,
         type: u.detectedType,
         nullable: u.nullable

@@ -10,17 +10,22 @@ export class CsvParser implements IFileParser {
       
       let rowsPreview: Record<string, any>[] = [];
       let headers: string[] = [];
+      let totalRowCount = 0;
 
       Papa.parse(fileStream, {
         header: true,
-        preview: 20, // PapaParse's built-in preview limit
         skipEmptyLines: true,
         step: (results, parser) => {
           // Inside step, headers are already available if header: true
           if (headers.length === 0 && results.meta.fields) {
             headers = results.meta.fields;
           }
-          rowsPreview.push(results.data as Record<string, any>);
+          // Keep only first 50 rows as preview
+          if (rowsPreview.length < 50) {
+            rowsPreview.push(results.data as Record<string, any>);
+          }
+          // Count total rows
+          totalRowCount++;
         },
         complete: () => {
           // If the file was so small step didn't trigger meta extraction gracefully
@@ -39,7 +44,42 @@ export class CsvParser implements IFileParser {
             };
           });
 
-          resolve({ columns, rowsPreview });
+          resolve({ columns, rowsPreview, totalRowCount });
+        },
+        error: (error) => {
+          reject(new Error(`CSV Parsing failed: ${error.message}`));
+        },
+      });
+    });
+  }
+
+  async parseAll(filePath: string): Promise<{ headers: string[], rows: any[][] }> {
+    return new Promise((resolve, reject) => {
+      const fileStream = fs.createReadStream(filePath);
+      
+      let headers: string[] = [];
+      const rows: any[][] = [];
+
+      Papa.parse(fileStream, {
+        header: true,
+        skipEmptyLines: true,
+        step: (results) => {
+          if (headers.length === 0 && results.meta.fields) {
+            headers = results.meta.fields;
+          }
+          
+          // PapaParse with header:true gives objects. Convert to flat array matching headers order
+          const rowObj = results.data as Record<string, any>;
+          const rowArr = headers.map(h => rowObj[h]);
+          rows.push(rowArr);
+        },
+        complete: () => {
+          if (headers.length === 0 && rows.length > 0) {
+            // Unlikely to happen with empty headers but just in case
+            resolve({ headers: [], rows: [] });
+            return;
+          }
+          resolve({ headers, rows });
         },
         error: (error) => {
           reject(new Error(`CSV Parsing failed: ${error.message}`));

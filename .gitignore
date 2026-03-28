@@ -80,3 +80,6 @@ Thumbs.db
 # App specific: Ignore local file uploads but keep the directory structure
 apps/api/uploads/*
 !apps/api/uploads/.gitkeep
+
+# Test images directory
+test-images/

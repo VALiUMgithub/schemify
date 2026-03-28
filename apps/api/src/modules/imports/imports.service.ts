@@ -94,4 +94,14 @@ export class ImportsService {
     // 6. Return columns and the 20-row preview payload back to the client
     return parsedData;
   }
+
+  async updateColumns(importId: string, updates: { columnId: string, detectedType: string, nullable: boolean, name?: string }[]) {
+    // 1. Optionally check if importJob exists
+    const importJob = await this.repository.getImportById(importId);
+    if (!importJob) {
+      throw new Error('Import Job not found');
+    }
+    // 2. Perform updates
+    await this.repository.updateDetectedTypes(importId, updates);
+  }
 }

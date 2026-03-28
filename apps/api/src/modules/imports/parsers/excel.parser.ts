@@ -28,25 +28,28 @@ export class ExcelParser implements IFileParser {
     });
 
     const rowsPreview: Record<string, any>[] = [];
+    let totalRowCount = 0;
     
-    // Extract up to the first 20 rows of data (starting at row 2)
-    let count = 0;
+    // Extract up to the first 50 rows of data (starting at row 2) and count all rows
     worksheet.eachRow((row, rowNumber) => {
       if (rowNumber === 1) return; // Skip headers
-      if (count >= 20) return;     // Cap preview
-
-      const rowData: Record<string, any> = {};
       
-      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-        const headerName = headers[colNumber - 1];
-        if (headerName) {
-          // Convert cell value to a string baseline
-          rowData[headerName] = cell.text; 
-        }
-      });
+      totalRowCount++;
 
-      rowsPreview.push(rowData);
-      count++;
+      // Keep only first 50 rows as preview
+      if (rowsPreview.length < 50) {
+        const rowData: Record<string, any> = {};
+        
+        row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+          const headerName = headers[colNumber - 1];
+          if (headerName) {
+            // Convert cell value to a string baseline
+            rowData[headerName] = cell.text; 
+          }
+        });
+
+        rowsPreview.push(rowData);
+      }
     });
 
     // Build the columns schema based on headers
@@ -59,6 +62,41 @@ export class ExcelParser implements IFileParser {
        };
     });
 
-    return { columns, rowsPreview };
+    return { columns, rowsPreview, totalRowCount };
+  }
+
+  async parseAll(filePath: string): Promise<{ headers: string[], rows: any[][] }> {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(filePath);
+
+    const worksheet = workbook.worksheets[0];
+    if (!worksheet) throw new Error('No worksheets found');
+
+    const firstRow = worksheet.getRow(1);
+    const headers: string[] = [];
+    firstRow.eachCell((cell, colNumber) => {
+      headers[colNumber - 1] = cell.text.trim();
+    });
+
+    const headerCount = headers.length;
+    const rows: any[][] = [];
+
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return; // Skip headers
+
+      const rowArr: any[] = new Array(headerCount).fill(null);
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        const index = colNumber - 1;
+        if (index < headerCount) {
+          rowArr[index] = cell.text;
+        }
+      });
+      rows.push(rowArr);
+    });
+
+    // Filter out undefined arrays mappings
+    const cleanHeaders = headers.filter(Boolean);
+    return { headers: cleanHeaders, rows };
   }
 }
+

@@ -3,13 +3,30 @@ import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 
 export class ProjectsRepository {
+  private async ensureDemoUser(userId: string = 'demo-user') {
+    // Quick and dirty way to make sure the user exists so foreign keys don't fail for the demo
+    await prisma.user.upsert({
+      where: { email: `${userId}@example.com` },
+      update: {},
+      create: {
+        id: userId,
+        email: `${userId}@example.com`,
+        name: 'Demo User'
+      }
+    });
+  }
+
   async createProject(data: CreateProjectDto) {
+    if (data.userId) {
+      await this.ensureDemoUser(data.userId);
+    }
     return await prisma.project.create({
       data,
     });
   }
 
   async getProjects() {
+    await this.ensureDemoUser('demo-user');
     return await prisma.project.findMany({
       orderBy: { createdAt: 'desc' },
     });
