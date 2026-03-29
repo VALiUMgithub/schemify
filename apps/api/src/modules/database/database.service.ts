@@ -4,7 +4,9 @@ import { DatabaseAdapterFactory } from './adapters/adapter.factory';
 import { DatabaseConfiguration } from './adapters/strategy.interface';
 import { ParserFactory } from '../imports/parsers/parser.factory';
 import { GeneratorFactory, DatabaseType } from '../schema/generators/generator.factory';
+import { ExecutionOptions } from '../schema/generators/generator.interface';
 import { parseColumnTypeSpec } from '../schema/generators/type-mapper';
+import { coerceRows, ColumnTypeInfo } from './coercion/value-coercer';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -129,10 +131,13 @@ function validateNotNullColumns(
   return violations;
 }
 
-function mapExecutionError(error: unknown): ServiceError {
+function mapExecutionError(error: unknown, databaseType?: string): ServiceError {
   const err = error as ServiceError;
   const rawMessage = err?.message ?? 'Execution failed.';
 
+  // === MSSQL Errors ===
+  
+  // NULL constraint violation (MSSQL)
   const nullColumnMatch = rawMessage.match(/Cannot insert the value NULL into column '([^']+)'/i);
   if (nullColumnMatch) {
     const columnName = nullColumnMatch[1];
@@ -144,6 +149,7 @@ function mapExecutionError(error: unknown): ServiceError {
     );
   }
 
+  // String truncation (MSSQL)
   const truncationMatch = rawMessage.match(/String or binary data would be truncated.*column '([^']+)'/i);
   if (truncationMatch) {
     const columnName = truncationMatch[1];
@@ -155,7 +161,171 @@ function mapExecutionError(error: unknown): ServiceError {
     );
   }
 
-  return err;
+  // Type conversion error (MSSQL) - e.g., "Conversion failed when converting the nvarchar value 'Y' to data type bit"
+  const mssqlTypeConversionMatch = rawMessage.match(/Conversion failed when converting.*value '([^']+)'.*to data type (\w+)/i);
+  if (mssqlTypeConversionMatch) {
+    const value = mssqlTypeConversionMatch[1];
+    const targetType = mssqlTypeConversionMatch[2];
+    return createServiceError(
+      `Type conversion error: Cannot convert value '${value}' to ${targetType}. Check your data for invalid values or change the column type.`,
+      400,
+      'EXECUTION_TYPE_CONVERSION_ERROR',
+      { value, targetType }
+    );
+  }
+
+  // === PostgreSQL Errors ===
+
+  // Invalid boolean syntax (PostgreSQL)
+  const postgresBooleanMatch = rawMessage.match(/invalid input syntax for type boolean: "([^"]*)"/i);
+  if (postgresBooleanMatch) {
+    const value = postgresBooleanMatch[1];
+    return createServiceError(
+      `Invalid boolean value: "${value}". Boolean columns accept: true, false, yes, no, 1, 0, y, n. Empty values should be in nullable columns.`,
+      400,
+      'EXECUTION_INVALID_BOOLEAN',
+      { value }
+    );
+  }
+
+  // Invalid integer syntax (PostgreSQL)
+  const postgresIntegerMatch = rawMessage.match(/invalid input syntax for type integer: "([^"]*)"/i);
+  if (postgresIntegerMatch) {
+    const value = postgresIntegerMatch[1];
+    return createServiceError(
+      `Invalid integer value: "${value}". Integer columns only accept numeric values. Empty values should be in nullable columns.`,
+      400,
+      'EXECUTION_INVALID_INTEGER',
+      { value }
+    );
+  }
+
+  // Invalid date syntax (PostgreSQL)
+  const postgresDateMatch = rawMessage.match(/invalid input syntax for type (date|timestamp).*: "([^"]*)"/i);
+  if (postgresDateMatch) {
+    const dateType = postgresDateMatch[1];
+    const value = postgresDateMatch[2];
+    return createServiceError(
+      `Invalid ${dateType} value: "${value}". Use ISO 8601 format (YYYY-MM-DD) or ensure empty values are in nullable columns.`,
+      400,
+      'EXECUTION_INVALID_DATE',
+      { value, dateType }
+    );
+  }
+
+  // Timezone error (PostgreSQL)
+  const postgresTimezoneMatch = rawMessage.match(/time zone "([^"]+)" not recognized/i);
+  if (postgresTimezoneMatch) {
+    const timezone = postgresTimezoneMatch[1];
+    return createServiceError(
+      `Invalid timezone: "${timezone}". The date/time value contains an unrecognized timezone. Try using UTC or standard timezone names.`,
+      400,
+      'EXECUTION_INVALID_TIMEZONE',
+      { timezone }
+    );
+  }
+
+  // Parameter binding error (PostgreSQL) - often happens with large datasets
+  const postgresParamMatch = rawMessage.match(/bind message has (\d+) parameter formats but (\d+) parameters/i);
+  if (postgresParamMatch) {
+    return createServiceError(
+      `Database parameter limit exceeded. The dataset is too large for a single insert operation. This is being handled automatically with batched inserts.`,
+      400,
+      'EXECUTION_PARAMETER_LIMIT',
+      { expected: postgresParamMatch[1], actual: postgresParamMatch[2] }
+    );
+  }
+
+  // Value too long (PostgreSQL)
+  const postgresValueTooLongMatch = rawMessage.match(/value too long for type character varying\((\d+)\)/i);
+  if (postgresValueTooLongMatch) {
+    const maxLength = postgresValueTooLongMatch[1];
+    return createServiceError(
+      `Value exceeds column size limit of ${maxLength} characters. Increase the column size or truncate the data.`,
+      400,
+      'EXECUTION_SIZE_VIOLATION',
+      { maxLength }
+    );
+  }
+
+  // NULL constraint (PostgreSQL)
+  const postgresNullMatch = rawMessage.match(/null value in column "([^"]+)" .*violates not-null constraint/i);
+  if (postgresNullMatch) {
+    const columnName = postgresNullMatch[1];
+    return createServiceError(
+      `Column '${columnName}' is set to NOT NULL but contains empty or null values. Mark the column as nullable or clean the source data.`,
+      400,
+      'EXECUTION_NOT_NULL_VIOLATION',
+      { column: columnName }
+    );
+  }
+
+  // === MySQL Errors ===
+
+  // Incorrect value for column (MySQL)
+  const mysqlIncorrectMatch = rawMessage.match(/Incorrect (\w+) value: '([^']*)' for column '([^']+)'/i);
+  if (mysqlIncorrectMatch) {
+    const dataType = mysqlIncorrectMatch[1];
+    const value = mysqlIncorrectMatch[2];
+    const column = mysqlIncorrectMatch[3];
+    return createServiceError(
+      `Invalid ${dataType} value '${value}' for column '${column}'. Check your data format or change the column type.`,
+      400,
+      'EXECUTION_TYPE_CONVERSION_ERROR',
+      { dataType, value, column }
+    );
+  }
+
+  // Data too long (MySQL)
+  const mysqlDataTooLongMatch = rawMessage.match(/Data too long for column '([^']+)'/i);
+  if (mysqlDataTooLongMatch) {
+    const columnName = mysqlDataTooLongMatch[1];
+    return createServiceError(
+      `Data too long for column '${columnName}'. Increase the column size or truncate the data.`,
+      400,
+      'EXECUTION_SIZE_VIOLATION',
+      { column: columnName }
+    );
+  }
+
+  // Column cannot be null (MySQL)
+  const mysqlNullMatch = rawMessage.match(/Column '([^']+)' cannot be null/i);
+  if (mysqlNullMatch) {
+    const columnName = mysqlNullMatch[1];
+    return createServiceError(
+      `Column '${columnName}' is set to NOT NULL but contains empty or null values. Mark the column as nullable or clean the source data.`,
+      400,
+      'EXECUTION_NOT_NULL_VIOLATION',
+      { column: columnName }
+    );
+  }
+
+  // === Generic table exists error ===
+  const tableExistsMatch = rawMessage.match(/relation "([^"]+)" already exists/i) ||
+                           rawMessage.match(/Table '([^']+)' already exists/i) ||
+                           rawMessage.match(/There is already an object named '([^']+)'/i);
+  if (tableExistsMatch) {
+    const tableName = tableExistsMatch[1];
+    return createServiceError(
+      `Table '${tableName}' already exists. Use the "Drop existing table" or "Use IF NOT EXISTS" option to handle this.`,
+      400,
+      'EXECUTION_TABLE_EXISTS',
+      { table: tableName }
+    );
+  }
+
+  // If no specific pattern matched, return a more helpful generic error
+  if (err.statusCode) {
+    return err;
+  }
+
+  // Wrap unknown errors with a user-friendly message
+  return createServiceError(
+    `Database execution failed: ${rawMessage}`,
+    500,
+    'EXECUTION_UNKNOWN_ERROR',
+    { originalMessage: rawMessage }
+  );
 }
 
 export class DatabaseService {
@@ -165,7 +335,8 @@ export class DatabaseService {
   static async executeJob(
     importJobId: string,
     databaseType: string,
-    config: DatabaseConfiguration
+    config: DatabaseConfiguration,
+    options?: ExecutionOptions
   ): Promise<any> {
     // 1. Fetch Job and Schema Definition
     const job = await prisma.importJob.findUnique({
@@ -274,11 +445,19 @@ export class DatabaseService {
 
       // 5. Build execution DDL from latest column config to avoid stale schema drift.
       const generator = GeneratorFactory.getGenerator(databaseType as DatabaseType);
-      const executionSql = generator.generateCreateTable(schemaDef.tableName, orderedColumns);
+      const executionSql = generator.generateCreateTable(schemaDef.tableName, orderedColumns, options);
       await adapter.createTable(executionSql);
 
-      // 6. Bulk Insert Rows
-      const rowsInserted = await adapter.insertRows(safeTableName, columns, rows);
+      // 6. Coerce row values to match target column types
+      const columnTypeInfo: ColumnTypeInfo[] = orderedColumns.map(col => ({
+        name: col.name,
+        detectedType: col.detectedType,
+        nullable: col.nullable,
+      }));
+      const coercedRows = coerceRows(rows, columnTypeInfo, { databaseType });
+
+      // 7. Bulk Insert Rows
+      const rowsInserted = await adapter.insertRows(safeTableName, columns, coercedRows);
 
       // 7. Update status to Success on completion
       await prisma.executionJob.update({
@@ -301,7 +480,7 @@ export class DatabaseService {
         rowsInserted,
       };
     } catch (err: any) {
-      const mappedError = mapExecutionError(err);
+      const mappedError = mapExecutionError(err, databaseType);
 
       // Rollback status
       await prisma.executionJob.update({
@@ -326,5 +505,16 @@ export class DatabaseService {
       where: { importJobId },
       orderBy: { executedAt: 'desc' },
     });
+  }
+
+  /**
+   * Test connection to a database without executing anything
+   */
+  static async testConnection(
+    databaseType: string,
+    config: DatabaseConfiguration
+  ) {
+    const adapter = DatabaseAdapterFactory.getAdapter(databaseType);
+    return adapter.testConnection(config);
   }
 }

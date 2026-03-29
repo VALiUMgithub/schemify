@@ -3,15 +3,13 @@ import {
   LayoutGrid,
   FolderOpen,
   Upload,
-  Database,
+  Table2,
   ChevronLeft,
   ChevronRight,
   type LucideIcon,
 } from "lucide-react";
 import { useAppStore } from "@/store/app.store";
 import { cn } from "@/utils/cn";
-
-// ─── Navigation items ─────────────────────────────────────────────────────────
 
 interface NavItem {
   label: string;
@@ -25,8 +23,6 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Imports", to: "/imports", Icon: Upload },
 ];
 
-// ─── Logo ─────────────────────────────────────────────────────────────────────
-
 function Logo({ collapsed }: { collapsed: boolean }) {
   return (
     <div
@@ -36,7 +32,7 @@ function Logo({ collapsed }: { collapsed: boolean }) {
       )}
     >
       <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center shrink-0">
-        <Database className="w-4 h-4 text-white" strokeWidth={2} />
+        <Table2 className="w-4 h-4 text-white" strokeWidth={2} />
       </div>
 
       {!collapsed && (
@@ -78,8 +74,6 @@ function SidebarNavItem({
     </NavLink>
   );
 }
-
-// ─── Sidebar ──────────────────────────────────────────────────────────────────
 
 export function Sidebar() {
   const { sidebarOpen, toggleSidebar } = useAppStore();

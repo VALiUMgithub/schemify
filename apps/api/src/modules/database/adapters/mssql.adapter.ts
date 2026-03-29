@@ -1,6 +1,6 @@
 // apps/api/src/modules/database/adapters/mssql.adapter.ts
 import * as sql from 'mssql';
-import { DatabaseAdapter, DatabaseConfiguration } from './strategy.interface';
+import { DatabaseAdapter, DatabaseConfiguration, TestConnectionResult } from './strategy.interface';
 
 export class MssqlAdapter implements DatabaseAdapter {
   private pool: sql.ConnectionPool | null = null;
@@ -20,6 +20,53 @@ export class MssqlAdapter implements DatabaseAdapter {
 
     this.pool = new sql.ConnectionPool(sqlConfig);
     await this.pool.connect();
+  }
+
+  async testConnection(config: DatabaseConfiguration): Promise<TestConnectionResult> {
+    const startTime = Date.now();
+    let testPool: sql.ConnectionPool | null = null;
+
+    try {
+      const sqlConfig: sql.config = {
+        server: config.host,
+        port: config.port || 1433,
+        user: config.user,
+        password: config.password,
+        database: config.database,
+        options: {
+          encrypt: true,
+          trustServerCertificate: true,
+        },
+        connectionTimeout: 10000,
+      };
+
+      testPool = new sql.ConnectionPool(sqlConfig);
+      await testPool.connect();
+      await testPool.request().query('SELECT 1');
+      const connectionTimeMs = Date.now() - startTime;
+      await testPool.close();
+      
+      return {
+        success: true,
+        message: 'Connection successful',
+        connectionTimeMs,
+      };
+    } catch (error: any) {
+      const connectionTimeMs = Date.now() - startTime;
+      if (testPool) {
+        try {
+          await testPool.close();
+        } catch {
+          // Ignore disconnect errors
+        }
+      }
+      
+      return {
+        success: false,
+        message: error.message || 'Connection failed',
+        connectionTimeMs,
+      };
+    }
   }
 
   async createTable(ddlSql: string): Promise<void> {

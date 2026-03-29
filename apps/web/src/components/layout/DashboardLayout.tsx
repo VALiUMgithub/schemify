@@ -4,13 +4,6 @@ import { Topbar } from "./Topbar";
 
 /**
  * Root shell that wraps every authenticated page.
- *
- * Structure:
- *   ┌──────────┬─────────────────────────────────┐
- *   │          │  Topbar (sticky, outside scroll)│
- *   │ Sidebar  ├─────────────────────────────────┤
- *   │          │  <Outlet /> (scrollable)        │
- *   └──────────┴─────────────────────────────────┘
  */
 export function DashboardLayout() {
   return (

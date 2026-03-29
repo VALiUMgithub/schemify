@@ -67,14 +67,14 @@ export default {
 
                 // ── Status ───────────────────────────────────────────────────────────
                 status: {
-                    "success-bg": "#f0fdf4",
-                    "success-text": "#16a34a",
-                    "warning-bg": "#fffbeb",
-                    "warning-text": "#d97706",
-                    "error-bg": "#fef2f2",
-                    "error-text": "#dc2626",
-                    "info-bg": "#eff6ff",
-                    "info-text": "#2563eb",
+                    "success-bg": "rgb(var(--color-status-success-bg) / <alpha-value>)",
+                    "success-text": "rgb(var(--color-status-success-text) / <alpha-value>)",
+                    "warning-bg": "rgb(var(--color-status-warning-bg) / <alpha-value>)",
+                    "warning-text": "rgb(var(--color-status-warning-text) / <alpha-value>)",
+                    "error-bg": "rgb(var(--color-status-error-bg) / <alpha-value>)",
+                    "error-text": "rgb(var(--color-status-error-text) / <alpha-value>)",
+                    "info-bg": "rgb(var(--color-status-info-bg) / <alpha-value>)",
+                    "info-text": "rgb(var(--color-status-info-text) / <alpha-value>)",
                 },
             },
 

@@ -4,6 +4,9 @@ import { DatabaseController } from './database.controller';
 
 const router = Router();
 
+// POST /api/database/test-connection - test database connectivity
+router.post('/test-connection', DatabaseController.testConnection);
+
 // GET /api/database/:importJobId/executions - get history of executions
 router.get('/:importJobId/executions', DatabaseController.getExecutions);
 

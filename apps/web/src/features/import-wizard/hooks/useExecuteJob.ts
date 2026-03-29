@@ -1,6 +1,11 @@
 import { useMutation } from '@tanstack/react-query';
 import { api } from '@/services/api';
 
+export interface ExecutionOptions {
+  ifNotExists?: boolean;
+  dropIfExists?: boolean;
+}
+
 export interface ExecuteJobRequest {
   databaseType: string;
   config: {
@@ -12,6 +17,8 @@ export interface ExecuteJobRequest {
   };
   /** Optional custom SQL script to execute (if user edited the generated SQL) */
   sqlScript?: string;
+  /** Execution options for table handling */
+  options?: ExecutionOptions;
 }
 
 export const useExecuteJob = (importId: string | null) => {

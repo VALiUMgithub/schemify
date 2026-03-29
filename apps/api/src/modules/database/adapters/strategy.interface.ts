@@ -8,11 +8,22 @@ export interface DatabaseConfiguration {
   database: string;
 }
 
+export interface TestConnectionResult {
+  success: boolean;
+  message: string;
+  connectionTimeMs: number;
+}
+
 export interface DatabaseAdapter {
   /**
    * Connect to the external database
    */
   connect(config: DatabaseConfiguration): Promise<void>;
+
+  /**
+   * Test connection to the external database without maintaining connection
+   */
+  testConnection(config: DatabaseConfiguration): Promise<TestConnectionResult>;
 
   /**
    * Execute the generated SQL schema (DDL) to create tables
